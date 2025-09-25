@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>About – ASL Sign Detection</title>
+  <style>
+    body { margin:0; font-family: system-ui, sans-serif; background:#0b1020; color:#e9eef5; }
+    nav { display:flex; justify-content:center; gap:24px; padding:18px; border-bottom:1px solid #1d2745; }
+    nav a { color:#6ea8fe; text-decoration:none; font-weight:600; }
+    main { padding:24px; max-width:900px; margin:0 auto; }
+    .card { background:#0f1530; border:1px solid #1c2748; border-radius:16px; padding:20px; margin-bottom:20px; }
+    h1,h2,h3 { margin-top:0; }
+    ul { padding-left:20px; }
+    ol { padding-left:20px; }
+    footer { text-align:center; padding:18px; color:#9aa7b6; font-size:13px; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="index.html">Live Demo</a>
+    <a href="about.html">About</a>
+  </nav>
+
+  <main>
+    <section class="card">
+      <h1>About This Project - By: Lukas Wong (Updated 2025)</h1>
+      <p>
+        This project is a real-time American Sign Language (ASL) recognition system. That I trained using Machine Learning <strong>(NOT AI).</strong>
+        It uses your webcam to capture hand gestures, processes them with computer vision, and classifies them into ASL letters.
+      </p>
+      <p>
+        This is a simple passion project that I made on the side, where I drew inspiration for this project based on someone I knew in university who was learning ASL at the time. 
+      </p>
+      <p>
+        <strong>NOTE:</strong> Total costs are only $3/year for the DNS & $5/month for the AWS Lightsail service *prices in USD*
+      </p>
+    </section>
+
+    <section class="card">
+      <h2><strong>Current Limitations</strong></h2>
+      <ul>
+        <li><strong>Alphabet Focus:</strong> The model is only trained to recognize <em>single hand letters</em> (A–Z), not full ASL words or phrases.</li>
+        <li><strong>Simple Gestures:</strong> Many signs in ASL involve motion or two hands, which this model does not yet support.</li>
+        <li><strong>Accuracy Constraints:</strong> Performance may vary depending on lighting, camera quality, and how clearly the sign is made.</li>
+      </ul>
+      <p>
+      <strong>This project is a proof-of-concept for detecting simple alphabet letters</strong>, not a complete ASL translation tool... yet...
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>How It Works</h2>
+      <ol>
+        <li><strong>Webcam Input:</strong> The browser accesses your camera securely using <code>getUserMedia</code>.</li>
+        <li><strong>Hand Landmark Detection:</strong> MediaPipe extracts 21 keypoints (x, y, z) per frame.</li>
+        <li><strong>Feature Vector:</strong> These 63 values form the input to the recognition model.</li>
+        <li><strong>Model Inference:</strong> A TensorFlow.js model classifies the vector into 29 classes (A–Z plus <em>space</em>, <em>delete</em>, <em>nothing</em>).</li>
+        <li><strong>Output:</strong> Predictions are displayed and assembled into sentences, optionally with speech synthesis.</li>
+      </ol>
+    </section>
+
+    <section class="card">
+      <h2>How the Model Was Trained</h2>
+      <p>
+        The model was trained in Python using Keras and MediaPipe landmarks. 
+        Each frame was processed to extract 21 hand landmarks, flattened into 63 features. 
+        The architecture included three dense layers (256, 128, 64 neurons), each with batch normalization 
+        and dropout to reduce overfitting. Training used the Adam optimizer and categorical cross-entropy loss.
+      </p>
+      <p>
+        After ~41 epochs, the model achieved ~98% test accuracy and ~95% real-time recognition accuracy. 
+        The original <code>Execution_Code.py</code> handled webcam input with OpenCV, extracted landmarks with MediaPipe, 
+        and provided predictions + speech output. That logic was later ported to TensorFlow.js for browser inference.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Deployment</h2>
+      <p>
+        The app runs fully in-browser using TensorFlow.js, MediaPipe, and the Web Speech API. 
+        It is hosted on <strong>AWS Lightsail</strong>, with <strong>AWS Route 53</strong> used for DNS management 
+        to connect my custom domain <code>lukas-wong-asl.click</code>. 
+        HTTPS certificates were issued with <strong>Certbot</strong> and Let's Encrypt for secure webcam access.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Technologies Used</h2>
+      <ul>
+        <li><strong>TensorFlow / Keras</strong> – training the original model in Python</li>
+        <li><strong>OpenCV (Python)</strong> – preprocessing and webcam streaming during training</li>
+        <li><strong>MediaPipe (Python + JS)</strong> – extracting 21 hand landmarks</li>
+        <li><strong>TensorFlow.js</strong> – browser-based model inference</li>
+        <li><strong>MediaPipe Tasks Vision (HandLandmarker)</strong> – real-time hand tracking in the browser</li>
+        <li><strong>JavaScript (ES Modules)</strong> – frontend logic</li>
+        <li><strong>HTML / CSS</strong> – user interface</li>
+        <li><strong>Nginx</strong> – serving static site and models</li>
+        <li><strong>AWS Lightsail</strong> – hosting the application</li>
+        <li><strong>AWS Route 53</strong> – domain & DNS management</li>
+        <li><strong>Certbot + Let’s Encrypt</strong> – HTTPS certificates</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <p>Built with MediaPipe, TensorFlow.js, and AWS. © 2025</p>
+  </footer>
+</body>
+</html>

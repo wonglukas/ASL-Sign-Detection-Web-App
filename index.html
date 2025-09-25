@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ASL Sign Detection (Webcam)</title>
+  <style>
+    body { margin:0; font-family: system-ui, sans-serif; background:#0b1020; color:#e9eef5; }
+    nav { display:flex; justify-content:center; gap:24px; padding:18px; border-bottom:1px solid #1d2745; }
+    nav a { color:#6ea8fe; text-decoration:none; font-weight:600; }
+    main { padding:24px; max-width:900px; margin:0 auto; text-align:center; }
+    .card { background:#0f1530; border:1px solid #1c2748; border-radius:16px; padding:20px; margin-bottom:20px; }
+    h1,h2,h3 { margin-top:0; }
+    .camera-container { position: relative; display: inline-block; margin: 0 auto; }
+    video,canvas { width:640px; height:480px; border-radius:12px; }
+    #controls { margin-top: 16px; }
+    button { margin:5px; padding:10px 16px; border:none; border-radius:8px; background:#1d2745; color:#e9eef5; cursor:pointer; }
+    button:hover { background:#6ea8fe; color:#0b1020; }
+    #status { margin: 10px 0; font-weight: bold; color:#6ea8fe; }
+    footer { text-align:center; padding:18px; color:#9aa7b6; font-size:13px; }
+  </style>
+
+  <!-- TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+</head>
+<body>
+  <nav>
+    <a href="index.html">Live Demo</a>
+    <a href="about.html">About</a>
+  </nav>
+
+  <main>
+    <section class="card">
+      <h1>ASL Sign Detection – Live Demo</h1>
+      <p id="status">Loading model...</p>
+      <div class="camera-container">
+        <video id="webcam" autoplay playsinline></video>
+        <canvas id="overlay" width="640" height="480"
+                style="position:absolute; top:0; left:0;"></canvas>
+      </div>
+      <p id="prediction">Prediction: <strong>None</strong></p>
+      <p id="sentence">Sentence: </p>
+      <div id="controls">
+        <button onclick="startCam()">Start Camera</button>
+        <button onclick="stopCam()">Stop Camera</button>
+      </div>
+    </section>
+
+    <!-- New section with ASL alphabet reference photo -->
+    <section class="card">
+      <h2>Try with a sample image</h2>
+      <img src="https://static.vecteezy.com/system/resources/previews/013/849/546/original/asl-alphabet-character-set-free-vector.jpg" 
+           alt="ASL Alphabet Reference" 
+           style="max-width:100%; border-radius:12px;">
+    </section>
+  </main>
+
+  <footer>
+    <p>Built with MediaPipe Hands, TensorFlow.js, and Web Speech API. Deployed on AWS Lightsail. © 2025</p>
+  </footer>
+
+  <!-- Use CDN for MediaPipe Tasks Vision -->
+  <script type="module">
+    import { FilesetResolver, HandLandmarker } 
+      from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/vision_bundle.mjs";
+
+    let model, videoStream, detector, running = false;
+    let sentence = [], lastPredicted = "";
+    const labels = [
+      'A','B','C','D','E','F','G','H','I','J','K','L','M',
+      'N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+      'delete','space','nothing'
+    ];
+
+    async function loadModel() {
+      try {
+        const status = document.getElementById("status");
+        status.innerText = "Loading model...";
+
+        // Load TFJS model
+        model = await tf.loadLayersModel("/model/model.json");
+        console.log("TFJS model loaded");
+        status.innerText = "✅ TFJS model loaded. Loading MediaPipe...";
+
+        // Load MediaPipe detector
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm"
+        );
+        detector = await HandLandmarker.createFromOptions(vision, {
+          baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-assets/hand_landmarker.task" },
+          numHands: 1,
+          runningMode: "VIDEO"
+        });
+        console.log("MediaPipe Hands loaded");
+        status.innerText = "✅ All models loaded. Start the camera!";
+      } catch (err) {
+        console.error("Error loading model stack:", err);
+        document.getElementById("status").innerText =
+          "❌ Failed to load model stack. Check console.";
+      }
+    }
+
+    async function startCam() {
+      const video = document.getElementById("webcam");
+      videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = videoStream;
+      running = true;
+      document.getElementById("status").innerText = "📷 Camera started. Ready to predict.";
+      video.addEventListener("loadeddata", () => predictLoop(video));
+    }
+
+    function stopCam() {
+      running = false;
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        document.getElementById("prediction").innerHTML = "Prediction: <strong>Stopped</strong>";
+        document.getElementById("status").innerText = "⏹ Camera stopped.";
+      }
+      const ctx = document.getElementById("overlay").getContext("2d");
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    }
+
+    async function predictLoop(video) {
+      if (!model || !detector || !running) return;
+
+      const results = await detector.detectForVideo(video, performance.now());
+      const ctx = document.getElementById("overlay").getContext("2d");
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+      if (results.landmarks && results.landmarks.length > 0) {
+        const landmarks = results.landmarks[0];
+
+        // Draw landmarks
+        ctx.fillStyle = "lime";
+        for (const lm of landmarks) {
+          const x = lm.x * ctx.canvas.width;
+          const y = lm.y * ctx.canvas.height;
+          ctx.beginPath();
+          ctx.arc(x, y, 5, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+
+        // Flatten for model input
+        const flat = landmarks.flatMap(p => [p.x, p.y, p.z]);
+        const input = tf.tensor([flat]);
+
+        const prediction = model.predict(input);
+        const predictedIndex = prediction.argMax(-1).dataSync()[0];
+        const predictedLetter = labels[predictedIndex];
+
+        if (predictedLetter !== lastPredicted) {
+          if (predictedLetter === "space") {
+            sentence.push(" ");
+          } else if (predictedLetter === "delete") {
+            sentence.pop();
+          } else if (predictedLetter !== "nothing") {
+            sentence.push(predictedLetter);
+          }
+          lastPredicted = predictedLetter;
+        }
+
+        document.getElementById("prediction").innerHTML =
+          "Prediction: <strong>" + predictedLetter + "</strong>";
+        document.getElementById("sentence").innerText =
+          "Sentence: " + sentence.join("");
+
+        input.dispose();
+        prediction.dispose();
+      }
+
+      if (running) requestAnimationFrame(() => predictLoop(video));
+    }
+
+    window.startCam = startCam;
+    window.stopCam = stopCam;
+
+    loadModel();
+  </script>
+</body>
+</html>
